@@ -44,6 +44,8 @@ const (
 var NagiosMessage struct {
 	critical string
 	warning  string
+	ok       string
+	summary  string
 }
 var NagiosStatus int
 
@@ -161,6 +163,10 @@ func print_response(response []byte) {
 }
 
 func analyze_response(response []byte, warning string, critical string, method string, label string, on_missing string) {
+	var count_crit int
+	var count_warn int
+	var count_ok int
+
 	// convert because prometheus response can be float
 	w, _ := strconv.ParseFloat(warning, 64)
 	c, _ := strconv.ParseFloat(critical, 64)
@@ -182,14 +188,33 @@ func analyze_response(response []byte, warning string, critical string, method s
 	for _, result := range json_resp.Data.Result {
 		value := result.Value[1].(string)
 		metrics := result.Metric
-		if !set_status_message(c, "CRITICAL", metrics, value, method, label) {
-			set_status_message(w, "WARNING", metrics, value, method, label)
+		if set_status_message(c, "CRITICAL", metrics, value, method, label) {
+			count_crit++
+		} else if set_status_message(w, "WARNING", metrics, value, method, label) {
+			count_warn++
+		} else {
+			count_ok++
 		}
 	}
-	if NagiosMessage.critical == "" && NagiosMessage.warning == "" {
-		exit_func(NagiosStatus, "OK")
+
+	// it there's only one item in the result return one line, else return a summary and multilines
+	if count_crit+count_warn+count_ok > 1 {
+		switch NagiosStatus {
+		case 0:
+			NagiosMessage.summary = "OK "
+		case 1:
+			NagiosMessage.summary = "WARNING "
+		case 2:
+			NagiosMessage.summary = "CRITICAL "
+		default:
+			NagiosMessage.summary = "UNKNOWN "
+		}
+		if label == "none" {
+			label = "item"
+		}
+		NagiosMessage.summary = NagiosMessage.summary + strconv.Itoa(count_crit) + " " + label + " critical, " + strconv.Itoa(count_warn) + " " + label + " warning, " + strconv.Itoa(count_ok) + " " + label + " ok :\n------\n"
 	}
-	exit_func(NagiosStatus, NagiosMessage.critical+NagiosMessage.warning)
+	exit_func(NagiosStatus, strings.TrimSuffix(NagiosMessage.summary+NagiosMessage.critical+NagiosMessage.warning+NagiosMessage.ok, "\n"))
 }
 
 func exit_func(status int, message string) {
@@ -198,23 +223,31 @@ func exit_func(status int, message string) {
 }
 
 func set_status_message(compare float64, mess string, metrics map[string]string, value string, method string, label string) bool {
+	// prepare label and its value for output
+	label_value := "value"
+	if len(metrics[label]) > 0 {
+		label_value = label + " " + metrics[label]
+	}
 
 	float_value, _ := strconv.ParseFloat(value, 64)
 	c := Comparison{float_value, compare}                                  // structure with result value and comparison (w or c)
 	fn := reflect.ValueOf(&c).MethodByName(method).Call([]reflect.Value{}) // call the function with name method
 	if fn[0].Bool() {                                                      // get the result of the function called above
 		if mess == "CRITICAL" {
-			NagiosMessage.critical = NagiosMessage.critical + mess + " " + metrics[label] + " is " + value + " "
+			NagiosMessage.critical = NagiosMessage.critical + mess + " " + label_value + " is " + value + "\n"
 			if NagiosStatus == OK || NagiosStatus == WARNING {
 				NagiosStatus = CRITICAL
 			}
 		} else {
-			NagiosMessage.warning = NagiosMessage.warning + mess + " " + metrics[label] + " is " + value + " "
+			NagiosMessage.warning = NagiosMessage.warning + mess + " " + label_value + " is " + value + "\n"
 			if NagiosStatus == OK {
 				NagiosStatus = WARNING
 			}
 		}
 		return true
+	}
+	if mess == "WARNING" {
+		NagiosMessage.ok = NagiosMessage.ok + "OK" + " " + label_value + " is " + value + "\n"
 	}
 	return false
 }
@@ -222,6 +255,6 @@ func set_status_message(compare float64, mess string, metrics map[string]string,
 func Usage() {
 	fmt.Printf("How to: \n ")
 	fmt.Printf("$ go build nagitheus.go \n ")
-	fmt.Printf("$ ./nagitheus -H \"https://prometheus.example.com\" -q \"query\" -w 2  -c 3 -u User -p PASSWORD \n\n")
+	fmt.Printf("$ ./nagitheus -H \"https://prometheus.example.com\" -q \"query\" -w 2 -c 3 -u User -p PASSWORD \n\n")
 	flag.PrintDefaults()
 }
