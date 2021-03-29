@@ -46,7 +46,7 @@ env GOOS=linux GOARCH=amd64 go build nagitheus.go
 ````
 run:
 ```
- $ ./nagitheus -H "https://prometheus.example.com" -q "Prometheus Query" -w 2  -c 2 -u username -p PASSWORD -m le  -l label
+ $ ./nagitheus -H "https://prometheus.example.com" -q "Prometheus Query" -w 2 -c 2 -u username -p PASSWORD -m le  -l label
 ```
 ## How to run
 ```
@@ -158,3 +158,19 @@ CRITICAL value is 5.625835543270624
 ## Basic auth
 `-u username -p password` when both are set the request will be performed with basic auth
 
+## Value Mapping
+`-value-mapping <json key-value pairs>` allow mapping of the result values to defined strings for output, e.g. 0=>DOWN, 1=> UP:
+```
+./nagitheus -H 'https://prometheus.mgt.domain.com' -q 'up{job="prometheus"}' -c 1 -w 1 -m lt -l job -value-mapping '{"0":"DOWN","1":"UP"}'
+```
+returns
+```
+OK job prometheus is UP
+```
+
+## Value Unit
+`-value-unit <unit>` allows adding a unit to the output result values, e.g. '%', 'GB':
+```
+WARNING persistentvolumeclaim prometheus-kube-prometheus-db-prometheus-kube-prometheus-0 is 2.2607424766047886 %
+CRITICAL persistentvolumeclaim prometheus-kube-prometheus-db-prometheus-kube-prometheus-0 is 5.625835543270624 %
+```
