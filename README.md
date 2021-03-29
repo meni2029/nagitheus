@@ -124,15 +124,31 @@ Prometheus response: {
   }
 }
 ```
+## Output
+If the result contains multiple values, the output returns a summary and multiline results:
+```
+CRITICAL 1 persistentvolumeclaim critical, 1 persistentvolumeclaim warning, 0 persistentvolumeclaim ok :
+------
+CRITICAL persistentvolumeclaim prometheus-kube-prometheus-db-prometheus-kube-prometheus-0 is 5.625835543270624
+WARNING persistentvolumeclaim prometheus-kube-prometheus-db-prometheus-kube-prometheus-0 is 2.2607424766047886
+```
+Otherwise with a single value the result would be:
+```
+CRITICAL persistentvolumeclaim prometheus-kube-prometheus-db-prometheus-kube-prometheus-0 is 5.625835543270624
+```
 ## Label
 
 `-l labelname` takes a label that you want to print toghether with Status and value:
 ```
-WARNING prometheus-kube-prometheus-db-prometheus-kube-prometheus-0 is 2.2607424766047886 CRITICAL prometheus-kube-prometheus-db-prometheus-kube-prometheus-0 is 5.625835543270624
+WARNING persistentvolumeclaim prometheus-kube-prometheus-db-prometheus-kube-prometheus-0 is 2.2607424766047886
+CRITICAL persistentvolumeclaim prometheus-kube-prometheus-db-prometheus-kube-prometheus-0 is 5.625835543270624
 ```
-Without the label the result would be
+Without the label the result would be:
 ```
-WARNING is 2.2607424766047886 CRITICAL is 5.625835543270624
+CRITICAL 1 item critical, 1 item warning, 0 item ok :
+------
+WARNING value is 2.2607424766047886
+CRITICAL value is 5.625835543270624
 ```
 
 ## Method
